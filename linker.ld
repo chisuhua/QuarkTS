@@ -2,6 +2,7 @@
 MEMORY
 {
     RAM (rwx) : ORIGIN = 0x80000000, LENGTH = 0x100000  /* 可读写可执行的RAM区域 */
+    /*RAM2 (rwx) : ORIGIN = 0x80100000, LENGTH = 0x100000  /* 可读写可执行的RAM区域 */
     /* ROM (rx) : ORIGIN = 0x0, LENGTH = 0x10000 */  /* 如果有只读存储区域 */
 }
 
