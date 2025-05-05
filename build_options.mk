@@ -8,13 +8,13 @@
 ### Configurable variables ###
 ##############################
 # The compiler
-CC = riscv64-unknown-elf-gcc
-#LD = riscv64-unknown-elf-ld
-LD = riscv64-unknown-elf-gcc
-OBJCOPY = riscv64-unknown-elf-objcopy
-OBJDUMP=riscv64-unknown-elf-objdump
-READELF=riscv64-unknown-elf-readelf
-GDB=riscv64-unknown-elf-gdb
+CC = riscv32-unknown-elf-gcc
+#LD = riscv32-unknown-elf-ld
+LD = riscv32-unknown-elf-gcc
+OBJCOPY = riscv32-unknown-elf-objcopy
+OBJDUMP=riscv32-unknown-elf-objdump
+READELF=riscv32-unknown-elf-readelf
+GDB=riscv32-unknown-elf-gdb
 #DBG=-O2
 DBG=-g
 OPT_FLAGS= -ffunction-sections -fdata-sections $(DBG)
@@ -32,7 +32,7 @@ UNUSED_LFLAGS = -Wl,--gc-sections -Wl,-Map=output.map
 #LFLAGS = -m elf32lriscv  -T linker.ld
 #LFLAGS = -m elf32lriscv
 #LFLAGS = -mabi=ilp32 -march=rv32imc -T linker.ld
-LFLAGS = -mabi=ilp32 -march=rv32imc $(UNUSED_LFLAGS) -T linker.ld
+LFLAGS = $(UNUSED_LFLAGS) -T linker.ld
 # Output directories
 OBJ_DIR := obj
 BIN_DIR := bin
