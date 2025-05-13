@@ -4,22 +4,26 @@
 #### This file is public domain.
 #### J. Camilo Gomez C.
 ####
-include build_options.mk
+mkfile_abs_dir := $(abspath $(lastword $(MAKEFILE_LIST)))
+mkfile_dir := $(dir $(mkfile_abs_dir))
+include $(mkfile_dir)/build_options.mk
 ###################################################################################################
 ### Do NOT touch the lines below , use the build_options.mk file to change the compile behavior ###
 ###################################################################################################
-INC 	:= 	$(sort -I. $(addprefix -I./,$(dir  $(wildcard *.h */*.h */*/*.h */*/*/*.h)   )) )
-SRC 	:= 	$(wildcard src/os/qfsm.c \
-										 src/os/qkernel.c \
-										 src/os/qqueues.c \
-										 src/os/qstimers.c \
-										 src/os/qlists.c \
-										 src/os/q*.c \
-										 mytest/*.c)
-OBJ 	:= 	$(addprefix $(OBJ_DIR)/,$(SRC:.c=$(OBJ_EXT)))
-TARGET 	= 	$(BIN_DIR)/kernel
-OUT 	= 	$(TARGET).elf
-BIN 	= 	$(TARGET).bin
+OBJ_EXT = .o
+# 收集头文件（递归查找多级子目录）
+all_h_files := $(sort $(dir $(wildcard \
+    $(mkfile_dir)*.h \
+    $(mkfile_dir)*/*.h \
+    $(mkfile_dir)*/*/*.h \
+    $(mkfile_dir)*/*/*/*.h \
+)))
+INC := 	$(addprefix -I, $(all_h_files))
+SRC += 	$(wildcard $(mkfile_dir)/src/os/q*.c)
+OBJ := $(patsubst %.c,$(OBJ_DIR)/%.o,$(SRC))
+TARGET = $(BIN_DIR)/kernel
+OUT = $(TARGET).elf
+BIN = $(TARGET).bin
 
 NO_REBOOT=-no-reboot
 #NO_REBOOT=
@@ -46,7 +50,7 @@ run: $(BIN)
 
 	#@./$(OUT)
 gdb: $(OUT)
-	$(GDB) $<
+	$(GDB) $< -ex "target remote localhost:1234" -ex "break start" -ex "continue"
 
 $(BIN): $(OUT)
 	$(OBJCOPY) -O binary $< $@

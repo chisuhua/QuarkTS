@@ -32,8 +32,9 @@ UNUSED_LFLAGS = -Wl,--gc-sections -Wl,-Map=output.map
 #LFLAGS = -m elf32lriscv  -T linker.ld
 #LFLAGS = -m elf32lriscv
 #LFLAGS = -mabi=ilp32 -march=rv32imc -T linker.ld
-LFLAGS = $(UNUSED_LFLAGS) -T linker.ld
+LFLAGS = $(UNUSED_LFLAGS) -T $(LINKER)
 # Output directories
-OBJ_DIR := obj
-BIN_DIR := bin
+OUTPUT_PATH := $(RISCV_PATH)/../quarks
+OBJ_DIR := $(OUTPUT_PATH)
+BIN_DIR := $(OUTPUT_PATH)
 OBJ_EXT ?= .o
