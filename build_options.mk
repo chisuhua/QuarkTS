@@ -17,18 +17,27 @@ OBJDUMP=riscv32-unknown-elf-objdump
 READELF=riscv32-unknown-elf-readelf
 GDB=riscv32-unknown-elf-gdb
 #DBG=-O2
+ifeq ($(NDEBUG),1)
+DBG=-O3 -DNDEBUG=1
+else
 DBG=-g
+endif
+
+#EXTRA_FLAGS = -flto -Wextra -Wimplicit-fallthrough=0 -Wformat-security -Wduplicated-cond -Wfloat-equal -Wshadow -Wconversion -Wsign-conversion -Wjump-misses-init -Wlogical-not-parentheses -Wnull-dereference  -Wnull-dereference -Wstringop-overflow 
+EXTRA_FLAGS =
+ifeq ($(BAREMETAL),1)
+EXTRA_FLAGS = -DBAREMETAL=1
+endif
+
 OPT_FLAGS= -ffunction-sections -fdata-sections $(DBG)
 
 
-ASFLAGS = -march=rv32imc -mabi=ilp32
+ASFLAGS = -march=rv32imc_zicsr -mabi=ilp32
 
 # Flags to pass to the compiler for release builds
-RISCV_FLAGS = $(DBG) -ffreestanding -nostdlib -nostartfiles -mcmodel=medlow -march=rv32imc -mabi=ilp32
+RISCV_FLAGS = $(DBG) -ffreestanding -nostartfiles -mcmodel=medlow -march=rv32imc_zicsr -mabi=ilp32
 #RISCV_FLAGS = $(DBG) -ffreestanding -mcmodel=medlow -march=rv32imc -mabi=ilp32
-EXTRA_FLAGS = -flto -Wextra -Wimplicit-fallthrough=0 -Wformat-security -Wduplicated-cond -Wfloat-equal -Wshadow -Wconversion -Wsign-conversion -Wjump-misses-init -Wlogical-not-parentheses -Wnull-dereference  -Wnull-dereference -Wstringop-overflow 
-EXTRA_FLAGS =
-CFLAGS = -fdump-rtl-expand -Wall $(EXTRA_FLAGS) $(RISCV_FLAGS) $(OPT_FLAGS)  -fstrict-aliasing -std=c99 -D_POSIX_C_SOURCE=199309L -MD -Wstrict-aliasing -DQLIST_D_HANDLING
+CFLAGS = -fdump-rtl-expand -Wall $(EXTRA_FLAGS) $(RISCV_FLAGS) $(OPT_FLAGS)  -fstrict-aliasing -D_POSIX_C_SOURCE=199309L -MD -Wstrict-aliasing -DQLIST_D_HANDLING
 #CFLAGS = -Wall $(RISCV_FLAGS)  -fstrict-aliasing -O2 -std=c99 -D_POSIX_C_SOURCE=199309L -MD -Wstrict-aliasing -DQLIST_D_HANDLING
 
 # Flags to pass to the linker
