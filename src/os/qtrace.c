@@ -80,8 +80,14 @@ void _qTrace_dgb( const char *loc,
 }
 /*============================================================================*/
 static void qTrace_LogTicks( char *buff ) {
-    (void)qIOUtil_UtoA( qClock_GetTick(), buff, 10 );
     qDebug( NULL, '[' );
+    uint32_t hard_id;
+    asm volatile("csrr %0, mhartid" : "=r"(hard_id));
+    (void)qIOUtil_UtoA( hard_id, buff, 10 );
+    (void)qIOUtil_OutputString( qDebug, NULL, buff, qFalse );
+
+    qDebug( NULL, ':' );
+    (void)qIOUtil_UtoA( qClock_GetTick(), buff, 10 );
     (void)qIOUtil_OutputString( qDebug, NULL, buff, qFalse );
     qDebug( NULL, ']' );
     qDebug( NULL, ' ' );

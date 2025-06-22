@@ -25,6 +25,12 @@
         #define Q_PRIORITY_LEVELS           ( 3 )
     #endif
 
+    #ifndef Q_PRIORITY_CORES
+        #define Q_PRIORITY_CORES           ( 0 )
+    #endif
+
+    #define Q_PRIORITY_TOTAL           ( Q_PRIORITY_LEVELS + Q_PRIORITY_CORES )
+
     #ifndef Q_SETUP_TIME_CANONICAL
         #define Q_SETUP_TIME_CANONICAL      ( 0 )
     #endif
@@ -75,6 +81,9 @@
 
     /** @brief A macro directive to indicate the highest priority level. */
     #define qHigh_Priority          ( (qPriority_t)( Q_PRIORITY_LEVELS - 1U ) )
+
+    #define qCore0         ( (qPriority_t)( Q_PRIORITY_LEVELS) )
+    #define qCore1         ( (qPriority_t)( Q_PRIORITY_LEVELS + 1U) )
 
     /** @brief A directive indicating that the task will run every time its timeout has expired. */
     #define qPeriodic               ( (qIteration_t)INT32_MIN )
@@ -312,7 +321,8 @@
     * @return #qTrue if a release action its performed. In a normal scenario,
     * this function never returns.
     */
-    qBool_t qOS_Run( void );
+    qBool_t qOS_Run( uint32_t core_id );
+    qBool_t qOS_RunWorkerCore( uint32_t core_id);
 
     #if ( Q_ALLOW_YIELD_TO_TASK == 1 )
         /**

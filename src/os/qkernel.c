@@ -26,6 +26,16 @@
 #define QTASK_ITER_VALUE( x )                                               \
 ( ( ( (x) < 0 ) && ( (x) != qPeriodic ) ) ? -(x) : (x) )                    \
 
+typedef struct {
+    qTaskFcn_t task;
+    qEvent_t   arg;
+} closure_t;
+
+qQueue_t dispatchToCore;
+
+#define CLOSURE_QUEUE_LENGTH 8
+closure_t disp2coreBuffer[CLOSURE_QUEUE_LENGTH];
+
 /*an item of the priority-queue*/
 /*! @cond  */
 typedef struct _qQueueStack_s { // skipcq: CXX-E2000
@@ -33,6 +43,7 @@ typedef struct _qQueueStack_s { // skipcq: CXX-E2000
     void *QueueData;    /*< The data to queue. */
 }
 qQueueStack_t;
+
 
 typedef qUINT32_t qCoreFlags_t;
 
@@ -78,7 +89,8 @@ static qList_t *const waitingList = &kernel.coreLists[ Q_PRIORITY_LEVELS ]; // s
 static qList_t *const suspendedList = &kernel.coreLists[ Q_PRIORITY_LEVELS + 1 ]; // skipcq: CXX-W2011, CXX-W2009
 static qList_t *const readyList = &kernel.coreLists[ 0 ]; // skipcq: CXX-W2011, CXX-W2009
 static _qEvent_t_ * const eventInfo = &kernel.eventInfo; // skipcq: CXX-W2011, CXX-W2009
-static const qPriority_t maxPriorityValue = (qPriority_t)Q_PRIORITY_LEVELS - 1U;
+static const qPriority_t maxPriorityValue = (qPriority_t)Q_PRIORITY_TOTAL - 1U;
+static const qPriority_t maxPriorityLevels = (qPriority_t)Q_PRIORITY_LEVELS - 1U;
 /*=============================== Private Methods ============================*/
 static qBool_t qOS_TaskDeadLineReached( qTask_t * const Task );
 
@@ -160,6 +172,9 @@ static void qOS_Dispatch_xTask_FillEventInfo( qTask_t *Task );
         #endif
         #if ( Q_PRESERVE_TASK_ENTRY_ORDER == 1 )
             kernel.taskEntries = (size_t)0U;
+        #endif
+        #if ( Q_PRIORITY_CORES != 0 )
+            qQueue_Setup(&dispatchToCore, (uint8_t*)disp2coreBuffer, sizeof(closure_t), CLOSURE_QUEUE_LENGTH);
         #endif
         kernel.currentTask = NULL;
         (void)qClock_SetTickProvider( tFcn );
@@ -682,16 +697,32 @@ static void qOS_TriggerReleaseSchedEvent( void )
     QKERNEL_CORE_FLAG_SET( kernel.flag, QKERNEL_BIT_FCALL_IDLE ); /*MISRAC2012-Rule-11.3 allowed*/
 }
 #endif
-/*============================================================================*/
-qBool_t qOS_Run( void )
+
+qBool_t qOS_RunWorkerCore(uint32_t core_id)
 {
+    qTrace_Message("start core");
+    closure_t closure;
+    uint32_t counter = 0;
+    while (1) {
+        counter++;
+        //if (counter % 100 == 0) qTrace_Message("start core");
+        if (qTrue == qQueue_Receive(&dispatchToCore, &closure)) {
+            _qTrace_Kernel("runing closure in core\n", closure.task, closure.arg);
+            closure.task(closure.arg);
+        }
+    }
+}
+
+qBool_t qOS_Run(uint32_t core_id)
+{
+    if (core_id != 0 ) return qOS_RunWorkerCore(core_id);
     /*cstat -MISRAC2012-Rule-2.2_c*/
     qBool_t retValue = qFalse; /*only for API compatibility*/
     /*cstat +MISRAC2012-Rule-2.2_c*/
     do {
         /*check for ready tasks in the waiting-list*/
         if ( qOS_CheckForReadyTasks() ) {
-            qPriority_t xPriorityListIndex = maxPriorityValue;
+            qPriority_t xPriorityListIndex = maxPriorityLevels;
 
             do { /*loop every ready-list in descending priority order*/
                 /*get the target ready-list*/
@@ -700,6 +731,7 @@ qBool_t qOS_Run( void )
                     /*dispatch every task in the current ready-list*/
                     qOS_DispatchTasks( xList );
                 }
+
             } while ( 0U != xPriorityListIndex-- ); /*move to the next ready-list*/
         }
         else { /*no task in the scheme is ready*/
@@ -764,6 +796,7 @@ static qBool_t qOS_CheckForReadyTasks( void )
         /*cstat -MISRAC2012-Rule-11.5 -CERT-EXP36-C_b*/
         /*cppcheck-suppress misra-c2012-11.5 */
         xTask = (qTask_t*)qListIterator_Get( &i );
+
         /*cstat +MISRAC2012-Rule-11.5 +CERT-EXP36-C_b*/
         #if ( Q_NOTIFICATION_SPREADER == 1 )
             if ( NULL != kernel.nSpreader.mode ) {
@@ -841,7 +874,11 @@ static qBool_t qOS_CheckForReadyTasks( void )
             qList_t *xList;
 
             if ( qTriggerNULL != xTask->qPrivate.trigger ) {
-                xList = &readyList[ xTask->qPrivate.priority ];
+                if (xTask->qPrivate.priority > maxPriorityLevels) {
+                    xList = &readyList[ maxPriorityLevels ];
+                } else {
+                    xList = &readyList[ xTask->qPrivate.priority ];
+                }
                 _qTrace_Kernel( "(*)Moving to ready-list task ", xTask, NULL );
             }
             else {
@@ -942,7 +979,26 @@ static void qOS_DispatchTasks( qList_t *xList )
         #endif
         if ( NULL != taskActivities ) {
             _qTrace_Kernel( "(^)Dispatching task ", xTask, NULL );
+#if ( Q_PRIORITY_CORES == 0 )  
             taskActivities( eventInfo );
+#else
+            qTrace_Message("disp2core: enter!");
+            if (xTask->qPrivate.priority <= Q_PRIORITY_LEVELS) {
+                taskActivities( eventInfo );
+                qTrace_Message("disp2core: run task direct!\n");
+            } else {
+                qTrace_Message("disp2core: disp task!\n");
+                closure_t closure = {
+                    .task = taskActivities,
+                    .arg  = eventInfo
+                };
+
+                while (qFalse == qQueue_Send(&dispatchToCore, &closure, QUEUE_SEND_TO_BACK)) {
+                    //printf("disp2core: Queue full!\n");
+                    _qTrace_Kernel("disp2core: Sent task", xTask, NULL);
+                }
+            }
+#endif
         }
         #if ( Q_ALLOW_YIELD_TO_TASK == 1 )
             while ( NULL != kernel.yieldTask ) {

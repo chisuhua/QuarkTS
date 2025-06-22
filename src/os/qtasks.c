@@ -130,7 +130,7 @@ qBool_t qTask_Set_Priority( qTask_t * const Task,
 {
     qBool_t retValue = qFalse;
 
-    if ( ( NULL != Task ) && ( pValue < (qPriority_t)Q_PRIORITY_LEVELS ) ) {
+    if ( ( NULL != Task ) && ( pValue < (qPriority_t)Q_PRIORITY_LEVELS + Q_PRIORITY_CORES ) ) {
         Task->qPrivate.priority = pValue;
         retValue = qTrue;
     }

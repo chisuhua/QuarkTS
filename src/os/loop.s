@@ -1,4 +1,3 @@
-
 .section .text
 .global loop10inst
 .global loop100inst
